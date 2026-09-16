@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS builder
+
+WORKDIR /src
+
+COPY demo-csharp.csproj .
+RUN dotnet restore
+
+COPY . .
+RUN dotnet publish -c Release -o /app/out --no-restore
+
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+
+WORKDIR /app
+
+COPY --from=builder /app/out .
+
+EXPOSE 8080
+
+CMD ["dotnet", "demo-csharp.dll"]
