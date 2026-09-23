@@ -1,0 +1,33 @@
+# На 6: Keycloak в dev-режиме (start-dev).
+# Встроенная БД H2 в томе, HTTP, без кешей тем — только для разработки.
+name: keycloak-dev
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0
+    command: start-dev
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Задайте KEYCLOAK_ADMIN_PASSWORD в .env}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      # Только на localhost — наружу порт не открываем
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - kc_dev_data:/opt/keycloak/data
+    healthcheck:
+      # В образе нет curl/wget, поэтому ходим в /health/ready через bash /dev/tcp
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  kc_dev_data:

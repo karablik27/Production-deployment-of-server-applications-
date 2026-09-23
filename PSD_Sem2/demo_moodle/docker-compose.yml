@@ -1,0 +1,35 @@
+name: "moodle"
+services:
+  mariadb:
+    image: docker.io/bitnamilegacy/mariadb:11.4
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - MARIADB_USER=bn_moodle
+      - MARIADB_DATABASE=bitnami_moodle
+      - MARIADB_CHARACTER_SET=utf8mb4
+      - MARIADB_COLLATE=utf8mb4_unicode_ci
+      - BITNAMI_DEBUG=true
+    volumes:
+      - "./mariadb_data:/bitnami/mariadb"
+  moodle:
+    image: docker.io/bitnamilegacy/moodle:4.5.4
+    ports:
+      - "80:8080"
+    environment:
+      - MOODLE_DATABASE_HOST=mariadb
+      - MOODLE_DATABASE_PORT_NUMBER=3306
+      - MOODLE_DATABASE_USER=bn_moodle
+      - MOODLE_DATABASE_NAME=bitnami_moodle
+      - ALLOW_EMPTY_PASSWORD=yes
+      - MOODLE_USERNAME=admin
+      - MOODLE_PASSWORD=adminpass
+      - BITNAMI_DEBUG=true
+    volumes:
+      - "./moodle_data:/bitnami/moodle"
+      - "./moodledata_data:/bitnami/moodledata"
+    depends_on:
+      - mariadb
+  jobe:
+    image: trampgeek/jobeinabox:latest
+    ports:
+      - "4000:80"

@@ -1,0 +1,10 @@
+# Секреты
+.env
+
+# Ключи и сертификаты генерируются скриптом
+3_npm_cert/certs/*
+!3_npm_cert/certs/gen-certs.sh
+
+# Данные NPM
+3_npm_cert/npm/data/
+3_npm_cert/npm/letsencrypt/

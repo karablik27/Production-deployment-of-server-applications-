@@ -1,0 +1,78 @@
+# На 10: продовый Keycloak за Nginx Proxy Manager с самоподписанным сертификатом.
+# TLS терминируется на NPM, Keycloak доступен только из сети npm-network.
+name: keycloak-npm
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Задайте DB_PASSWORD в .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # БД изолирована: NPM её не видит
+    networks:
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging: *default-logging
+
+  keycloak:
+    build: .
+    image: hw-keycloak:24.0-prod
+    restart: unless-stopped
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN:-kcadmin}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Задайте KEYCLOAK_ADMIN_PASSWORD в .env}
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${DB_PASSWORD}
+      KC_HOSTNAME: ${DOMAIN:-keycloak.localhost}
+      # За reverse-proxy: доверяем X-Forwarded-* от NPM, HTTP только внутри докер-сети
+      KC_PROXY_HEADERS: xforwarded
+      KC_HTTP_ENABLED: "true"
+    # ports не публикуем — наружу смотрит только NPM
+    networks:
+      - backend
+      - npm-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 1536M
+          cpus: "2.0"
+    healthcheck:
+      # В образе нет curl/wget, поэтому ходим в /health/ready через bash /dev/tcp
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    logging: *default-logging
+
+networks:
+  backend:
+    driver: bridge
+  npm-network:
+    external: true
+
+volumes:
+  pgdata:

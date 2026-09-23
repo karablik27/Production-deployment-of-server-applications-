@@ -1,0 +1,37 @@
+name: npm
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      # Админка NPM — только с этой машины
+      - '127.0.0.1:81:81'
+    environment:
+      DISABLE_IPV6: 'true'
+      # Свой админ вместо умолчанного admin@example.com / changeme
+      INITIAL_ADMIN_EMAIL: ${NPM_ADMIN_EMAIL:?Задайте NPM_ADMIN_EMAIL в .env}
+      INITIAL_ADMIN_PASSWORD: ${NPM_ADMIN_PASSWORD:?Задайте NPM_ADMIN_PASSWORD в .env}
+    volumes:
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - npm-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    logging: *default-logging
+
+networks:
+  npm-network:
+    external: true
